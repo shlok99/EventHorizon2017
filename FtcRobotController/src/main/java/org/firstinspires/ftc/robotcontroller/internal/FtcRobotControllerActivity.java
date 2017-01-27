@@ -40,6 +40,7 @@ import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.graphics.Bitmap;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.net.wifi.WifiManager;
@@ -54,6 +55,7 @@ import android.view.View;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.hardware.Camera;
@@ -96,6 +98,7 @@ import org.firstinspires.ftc.robotcore.internal.AppUtil;
 import org.firstinspires.inspection.RcInspectionActivity;
 
 import java.io.File;
+import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -254,6 +257,23 @@ public class FtcRobotControllerActivity extends Activity {
     wifiLock = wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "");
 
     hittingMenuButtonBrightensScreen();
+    mCamera = Camera.open();
+    Camera.Parameters params = mCamera.getParameters(); // mCamera is a Camera object
+    List<Camera.Size> sizes = params.getSupportedPreviewSizes();
+
+// position: variable where you choose between different supported resolutions,
+// this varies from phone to phone, even the order can be different,
+// ex. ascending or descending order.
+
+    params.setPreviewSize(params.getPreviewSize().width, params.getPreviewSize().height);
+    params.setRotation(90);
+    params.setJpegQuality(100);
+    //List <Camera.Size> imageSizes = mCamera.getParameters().getSupportedPictureSizes();
+    //int width = imageSizes.get(imageSizes.size()-1).width;
+    //int height = imageSizes.get(imageSizes.size()-1).height;
+    //params.setPictureSize(972,1476);
+    mCamera.setParameters(params);
+    mCamera.setDisplayOrientation(90);
 
     if (USE_DEVICE_EMULATION) { HardwareFactory.enableDeviceEmulation(); }
 
@@ -261,7 +281,7 @@ public class FtcRobotControllerActivity extends Activity {
     callback.networkConnectionUpdate(WifiDirectAssistant.Event.DISCONNECTED);
     readNetworkType(NETWORK_TYPE_FILENAME);
     bindToService();
-    camera=openBackFacingCamera();
+
   }
 
   protected UpdateUI createUpdateUI() {
@@ -331,7 +351,7 @@ public class FtcRobotControllerActivity extends Activity {
     unbindFromService();
     wifiLock.release();
     RobotLog.cancelWriteLogcatToDisk();
-    releaseCamera();
+    mCamera.release();
   }
 
   protected void bindToService() {
@@ -547,53 +567,37 @@ public class FtcRobotControllerActivity extends Activity {
   }
 
   //CAMERA STUFF
-  public Camera camera;
-  private Camera openBackFacingCamera() {
-    int cameraId = -1;
-    Camera cam = null;
-    int numberOfCameras = Camera.getNumberOfCameras();
-    for (int i = 0; i < numberOfCameras; i++) {
-      Camera.CameraInfo info = new Camera.CameraInfo();
-      Camera.getCameraInfo(i, info);
-      if (info.facing == Camera.CameraInfo.CAMERA_FACING_BACK) {
-        cameraId = i;
-        break;
-      }
-    }
-    try {
-      cam = Camera.open(cameraId);
-    } catch (Exception e) {
-
-    }
-    return cam;
-  }
-
-  public void initPreview(final Camera camera, final CameraOp context, final Camera.PreviewCallback previewCallback) {
+  public static Camera mCamera;
+  private static CameraPreview mPreview;
+  public void initImageTakenPreview(final Bitmap image) {
     runOnUiThread(new Runnable() {
       @Override
       public void run() {
-        context.preview = new CameraPreview(FtcRobotControllerActivity.this, camera, previewCallback);
-        FrameLayout previewLayout = (FrameLayout) findViewById(R.id.previewLayout);
-        previewLayout.addView(context.preview);
+
+        ImageView replaceRobotIcon = (ImageView) findViewById(R.id.robotIcon);
+        replaceRobotIcon.setImageBitmap(image);
+      }
+    });
+  }
+  public void initCameraPreview(final Camera camera, final CameraOp context) {
+    runOnUiThread(new Runnable() {
+      @Override
+      public void run() {
+        context.preview = new CameraPreview(FtcRobotControllerActivity.this, camera);
+        FrameLayout cameraPreviewLayout = (FrameLayout) findViewById(R.id.previewLayout);
+        cameraPreviewLayout.addView(context.preview);
       }
     });
   }
 
-  public void initPreview(final Camera camera, final CameraTest context, final Camera.PreviewCallback previewCallback) {
+  public void initCameraPreview(final Camera camera, final CameraTest context) {
     runOnUiThread(new Runnable() {
       @Override
       public void run() {
-        context.preview = new CameraPreview(FtcRobotControllerActivity.this, camera, previewCallback);
-        FrameLayout previewLayout = (FrameLayout) findViewById(R.id.previewLayout);
-        previewLayout.addView(context.preview);
+        context.preview = new CameraPreview(FtcRobotControllerActivity.this, camera);
+        FrameLayout cameraPreviewLayout = (FrameLayout) findViewById(R.id.previewLayout);
+        cameraPreviewLayout.addView(context.preview);
       }
     });
-  }
-
-  private void releaseCamera(){
-    if (camera != null){
-      camera.release();        // release the camera for other applications
-      camera = null;
-    }
   }
 }
